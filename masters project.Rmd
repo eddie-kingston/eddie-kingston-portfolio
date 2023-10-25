@@ -1,0 +1,518 @@
+---
+title: "Watarrka Networks"
+author: "Eddie Kingston"
+date: "12/27/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(igraph)
+```
+
+```{r}
+# Episode 1
+cast <- c("Clown","Coco","CT","Denver","Dio","Jacob","Josh","Lisa","Liz","Mark","Megan","Megan O","Mel","Neb","Zach","Zanny")
+ep1_day0 <- matrix(0,16,16,dimnames = list(cast,cast))
+ep1_day0[1,c(8,9,15,16)] <- 1 # Clown
+ep1_day0[3,c(1,2,6,8,9,11,14,15)] <- 1 # CT
+ep1_day0[5,c(6,12)] <- 1 # Dio
+ep1_day0[6,c(5,8,15)] <- 1 # Jacob
+ep1_day0[7,9] <- 1 # Josh
+ep1_day0[8,c(1,2,3,5,6,10,11,15)] <- 1 # Lisa
+ep1_day0[9,7] <- 1 # Liz
+ep1_day0[11,c(4,6)] <- 1 # Megan
+ep1_day0
+layout <- function(g) {
+  layout_(g,with_dh(weight.edge.lengths = edge_density(g)/1000)) # Function to specify desired layout
+}
+# original igraph plotting function - keep if necessary
+plot_net <- function(g) {
+  g <- graph_from_adjacency_matrix(g) # turns adjacency matrix into network
+  V(g)$color <- "cyan" 
+  for (i in 1:length(E(g))) {
+    E(g)$color[i] <- "grey50"
+  }
+ # ^ that line works regardless
+plot(g,vertex.size=27, edge.arrow.size=0.5, layout = layout(g))
+legend(x = -2.5, y = -1.2, legend = c("Expressed interest in working together"), fill = c("grey50"), title = "Connections")} # Function to add additional desired structure to the layout
+
+# statnet plotting function - keep if necessary
+# plot_net <- function(g,col) {
+# plot.network(asNetwork(g),displaylabels=T,vertex.col="cyan")
+# }
+plot_net(ep1_day0)
+```
+
+```{r}
+# Pre-tribe divisions
+ep1_day1 <- ep1_day0
+ep1_day1[3,11] <- 0
+ep1_day1[3,c(4,9,12,13)] <- 1 # CT
+ep1_day1[4,c(1,8,10)] <- 1 # Denver
+ep1_day1[5,c(9,10)] <- 1 # Dio
+ep1_day1[9,c(1,5,6,8,12,15)] <- 1 # Mark
+ep1_day1[14, c(3,5,6,8,15)] <- 1 # Neb
+ep1_day1[15,c(5,6,8,11,14)] <- 1 # Zach
+plot_net(ep1_day1)
+```
+
+```{r}
+# Day 1
+cast_g1 <- c("Coco", "Denver", "Josh", "Megan O", "Mel", "Neb", "Zach", "Zanny") # Gurindji 1.0
+cast_m1 <- c("Clown", "CT", "Dio", "Jacob", "Lisa", "Liz", "Mark", "Megan") # Makassan 1.0
+ally1 <- c() 
+ally2 <- c()
+ally3 <- c() # No alliances yet, but there will be 3 during the pre-swap
+elim <- c() # No one is eliminated yet
+ep1_day1_g1 <- matrix(0,8,8,dimnames=list(cast_g1,cast_g1))
+ep1_day1_m1 <- matrix(0,8,8,dimnames=list(cast_m1,cast_m1))
+ep1_day1_g1[2,4] <- 1 # Denver
+ep1_day1_g1[6,c(4,7)] <- 1 # Neb
+ep1_day1_g1[7,6] <- 1 # Zach
+ep1_day1_m1[1,c(5,6)] <- 1# Clown
+ep1_day1_m1[2,c(1,4,5,6)] <- 1 # CT
+ep1_day1_m1[3,c(4,6,7)] <- 1 # Dio
+ep1_day1_m1[4,c(2,5)] <- 1 # Jacob
+ep1_day1_m1[5,c(1,2,3,4,7,8)] <- 1 # Lisa
+ep1_day1_m1[7,c(1,3,4,5)] <- 1 # Mark
+ep1_day1_m1[8,c(4,5)] <- 1 # Megan
+plot_net_tribes <- function(g, m, elim) { # Plot both tribes together during the premerge phase
+  g <- graph_from_adjacency_matrix(g) # convert Gurundji matrix to graph
+  m <- graph_from_adjacency_matrix(m) # convert Makassan matrix to graph
+  old_union <- igraph::union(g,m)
+  old_union <- igraph::union(old_union,graph_from_adjacency_matrix(ep1_day1))
+  # re-alphabetizing so I don't have to re-label everything
+  old_union_mat <- as_adjacency_matrix(old_union)
+  row_order <- sort(rownames(old_union_mat))
+  col_order <- sort(colnames(old_union_mat))
+  old_union_mat <- old_union_mat[row_order,col_order] 
+  old_union <- graph_from_adjacency_matrix(old_union_mat)
+  
+  V(old_union)$color <- rep(0,length(V(old_union)$name)) # initialize vertex color attribute
+  for (i in 1:length(V(old_union)$color)) {
+    ifelse(V(old_union)$name[i] %in% cast_g1, V(old_union)$color[i] <- "red", V(old_union)$color[i] <- "green")
+  }  
+  for (j in 1:length(E(old_union))) {
+    if (attr(E(old_union),"vnames")[j] %in% ally1) {
+      E(old_union)$color[j] <- rgb(1,0,0,1) # Main alliance has deep red
+    }
+    else if (attr(E(old_union),"vnames")[j] %in% ally2) {
+      E(old_union)$color[j] <- rgb(1,0,0,0.1) # Extension of alliance 1; light red
+    }
+    else if (attr(E(old_union),"vnames")[j] %in% ally3) {
+      E(old_union)$color[j] <- rgb(128/255,0,0,1) # Extension of alliance 1; maroon
+    }
+    else {
+      E(old_union)$color[j] <- "grey50"
+    }
+  }
+  plot(old_union,vertex.size=27, edge.arrow.size=0.5, layout = layout(old_union))
+  legend(x = -2.5, y = -1.2, legend = c("Expressed interest in working together"), fill = c("grey50"), title = "Connections")
+  legend(x = 0.1, y = -1.2, legend = c("Gurundji 1.0", "Makassan 1.0"), fill = c("red", "green"), title = "Tribes")
+}
+plot_net_tribes(ep1_day1_g1,ep1_day1_m1)
+```
+
+```{r}
+# Day 2
+ep1_day2_g1 <- ep1_day1_g1
+ep1_day2_m1 <- ep1_day1_m1
+ep1_day2_g1[5,c(4,7,8)] <- 1 # Mel
+ep1_day2_g1[8,5] <- 1 # Zanny
+ep1_day2_m1[1,4] <- 1 # Clown
+ep1_day2_m1[3,5] <- 1 # Dio
+ep1_day2_m1[4,c(1,6)] <- 1 # Jacob
+ep1_day2_m1[6,1] # Liz
+plot_net_tribes(ep1_day2_g1,ep1_day2_m1)
+```
+```{r}
+# Day 3
+ep1_day3_g1 <- ep1_day2_g1
+ep1_day3_m1 <- ep1_day2_m1
+ally1 <- c("Denver|Megan O", "Megan O|Denver", "Denver|Mel", "Mel|Denver", "Megan O|Mel", "Mel|Megan O")
+ep1_day3_g1[2,c(4,5)] <- 1 # Denver/MegO/Mel alliance
+ep1_day3_g1[2,c(6,7)] <- 1 # Denver wants to work with Neb and Zach
+ep1_day3_g1[4,c(2,5)] <- 1 # Megan O/Denver/Mel alliance
+ep1_day3_g1[4,6] <- 1 # Megan O wants to work with Neb
+ep1_day3_g1[5,2] <- 1 # Mel (Denver, MegO, Mel alliance)
+ep1_day3_g1[6,2] <- 1 # Neb
+ep1_day3_g1[7,c(2,4,6)] <- 1 # Zach
+plot_net_tribes(ep1_day3_g1,ep1_day3_m1)
+```
+
+```{r}
+# Episode 2
+cast_matrix<- ep1_day0[-2,-2] # Coco voted out
+ep1_day1 <- as_adjacency_matrix(delete_vertices(graph_from_adjacency_matrix(ep1_day1), "Coco")) # Coco voted out
+ep2_day4_g1 <- as_adjacency_matrix(delete_vertices(graph_from_adjacency_matrix(ep1_day1_g1),"Coco"))
+ep2_day4_m1 <- ep1_day3_m1
+ep2_day4_m1[1,c(2,4,5,6)] <- 1 # Clown
+ep2_day4_m1[2,c(1,4,5)] <- 1 # CT
+ep2_day4_m1[4,c(1,2,5,6)] <- 1 # Jacob
+ep2_day4_m1[5,c(1,2,4)] <- 1 # Lisa
+ep2_day4_m1[6, c(1,4)] <- 1 # Liz
+plot_net_tribes(ep2_day4_g1,ep2_day4_m1)
+```
+```{r}
+ep2_day7_g1 <- ep2_day4_g1
+ep2_day7_m1 <- ep2_day4_m1 # Alliances/allegiances don't change here
+ally2 <- c("Denver|Zanny", "Zanny|Denver", "Megan O|Zanny", "Zanny|Megan O", "Mel|Zanny", "Zanny|Mel")
+ally3 <- c("Denver|Neb","Neb|Denver","Megan O|Neb", "Neb|Megan O", "Mel|Neb","Neb|Mel","Neb|Zach","Zach|Neb",
+               "Denver|Zach","Zach|Denver","Megan O|Zach", "Zach|Megan O", "Mel|Zach","Zach|Mel")
+ep2_day7_g1[1,c(3,4,5,6,7)] <- 1 # Denver
+ep2_day7_g1[3,c(1,4,5,6,7)] <- 1 # Megan O
+ep2_day7_g1[4,c(1,3,5,6,7)] <- 1 # Mel
+ep2_day7_g1[5, c(1,3,4,6)] <- 1 # Neb
+ep2_day7_g1[6, c(1,3,4,5)] <- 1 # Zach
+ep2_day7_g1[7, c(1,3,4)] <- 1 # Zanny
+# Denver, Meg O, Mel, Zanny alliance
+# Denver, Meg O, Mel, Neb, Zach alliance
+plot_net_tribes(ep2_day7_g1,ep2_day7_m1)
+```
+
+```{r}
+# Episode 3, Day 9
+cast_matrix<- cast_matrix[-6,-6] # Josh voted out
+ep1_day1 <- as_adjacency_matrix(delete_vertices(graph_from_adjacency_matrix(ep1_day1), "Josh"))
+ep3_day9_g1 <- as_adjacency_matrix(delete_vertices(graph_from_adjacency_matrix(ep2_day7_g1),"Josh"))
+ep3_day9_m1 <- ep2_day7_m1
+ep3_day9_m1[1,c(2,5,8)] <- 1 # Clown
+ep3_day9_m1[2,c(1,5,8)] <- 1 # CT
+ep3_day9_m1[5,c(1,2,8)] <- 1 # Lisa
+ep3_day9_m1[8,c(1,2,5)] <- 1 # Megan
+plot_net_tribes(ep3_day9_g1,ep3_day9_m1)
+```
+```{r}
+# Day 10
+ep3_day10_g1 <- ep3_day9_g1
+ep3_day10_m1 <- ep3_day9_m1
+ep3_day10_m1[1,3] <- 1 # Clown
+plot_net_tribes(ep3_day10_g1, ep3_day10_m1)
+```
+
+```{r}
+# Episode 4 - Swap
+cast_matrix<- cast_matrix[-9,-9] # Megan voted out
+ep1_day1 <- as_adjacency_matrix(delete_vertices(graph_from_adjacency_matrix(ep1_day1), "Megan"))
+cast_g2 <- c("Clown", "Denver", "Dio", "Liz", "Mark", "Neb") # Gurindji 2.0
+cast_m2 <- c("CT", "Jacob", "Lisa", "Megan O", "Mel", "Zach", "Zanny") # Makassan 2.0
+ally4 <- c("Clown|Dio","Dio|Clown","Clown|Denver","Denver|Clown","Denver|Dio","Dio|Denver")
+ally5 <- c("Clown|Liz", "Liz|Clown", "Dio|Liz", "Liz|Dio")
+ally6 <- c("CT|Lisa","Lisa|CT","CT|Mel","Mel|CT","CT|Zach","Zach|CT",
+     "Lisa|Mel","Mel|Lisa","Lisa|Zach","Zach|Lisa","Mel|Zach","Zach|Mel")
+ally7 <- c()
+ally8 <- c()
+ep4_day10_g2 <- matrix(0,6,6,dimnames=list(cast_g2,cast_g2))
+ep4_day10_g2[1,c(2,3,4)] <- 1 # Clown
+ep4_day10_g2[2,c(1,3,6)] <- 1 # Denver
+ep4_day10_g2[3,c(1,2,4)] <- 1 # Dio
+ep4_day10_g2[4,c(1,3)] <- 1 # Liz
+ep4_day10_g2[6,2] <- 1 # Neb
+# Clown, Denver, Dio alliance
+# Clown, Dio, Liz alliance
+ep4_day10_m2 <- matrix(0,7,7,dimnames=list(cast_m2,cast_m2))
+ep4_day10_m2[1,c(3,5,6)] <- 1 # CT
+ep4_day10_m2[3,c(1,5,6)] <- 1 # Lisa
+ep4_day10_m2[4,c(5,6,7)] <- 1 # Megan O
+ep4_day10_m2[5,c(1,3,4,6,7)] <- 1 # Mel
+ep4_day10_m2[6,c(1,3,4,5)] <- 1 # Zach
+ep4_day10_m2[7,c(5,6)] <- 1 # Zanny
+# CT, Lisa, Mel, Zach alliance
+plot_net_swap <- function(g,m) {
+  g <- graph_from_adjacency_matrix(g) # convert Gurundji matrix to graph
+  m <- graph_from_adjacency_matrix(m) # convert Makassan matrix to graph
+  old_union <- igraph::union(g,m)
+  old_union <- igraph::union(old_union,graph_from_adjacency_matrix(ep1_day1))
+  # re-alphabetizing so I don't have to re-label everything
+  old_union_mat <- as_adjacency_matrix(old_union)
+  row_order <- sort(rownames(old_union_mat))
+  col_order <- sort(colnames(old_union_mat))
+  old_union_mat <- old_union_mat[row_order,col_order] 
+  old_union <- graph_from_adjacency_matrix(old_union_mat)
+  
+  for (i in 1:length(V(old_union)$name)) {
+    if (V(old_union)$name[i] %in% cast_g1 && V(old_union)$name[i] %in% cast_g2) {
+      V(old_union)$color[i] <- "red"
+    }
+    else if (V(old_union)$name[i] %in% cast_g1 && V(old_union)$name[i] %in% cast_m2) {
+        V(old_union)$color[i] <- "yellow"
+      }
+    else if (V(old_union)$name[i] %in% cast_m1 && V(old_union)$name[i] %in% cast_g2) {
+        V(old_union)$color[i] <- "purple"
+      }
+    else {
+      V(old_union)$color[i] <- "green"
+    }
+  }
+  for (j in 1:length(E(old_union))) {
+    if (attr(E(old_union),"vnames")[j] %in% ally1) {
+      E(old_union)$color[j] <- rgb(1,0,0,1) # Main alliance has deep red
+    }
+    else if (attr(E(old_union),"vnames")[j] %in% ally2) {
+      E(old_union)$color[j] <- rgb(1,0,0,0.1) # Extension of alliance 1; light red
+    }
+    else if (attr(E(old_union),"vnames")[j] %in% ally3) {
+      E(old_union)$color[j] <- rgb(128/255,0,0,1) # Extension of alliance 1; maroon
+    }
+    else if (attr(E(old_union),"vnames")[j] %in% ally4) {
+      E(old_union)$color[j] <- rgb(165/255,42/255,42/255,1) # Brown
+       }
+    else if (attr(E(old_union),"vnames")[j] %in% ally5) {
+      E(old_union)$color[j] <- rgb(210/255,180/255,140/255,1) # Tan
+       }
+    else if (attr(E(old_union),"vnames")[j] %in% ally6) {
+      E(old_union)$color[j] <- rgb(0,1,0,1) # Green
+       }
+    else if (attr(E(old_union),"vnames")[j] %in% ally7) {
+      E(old_union)$color[j] <- rgb(210/255,180/255,140/255,0.4) # less opaque tan
+       }
+    else if (attr(E(old_union),"vnames")[j] %in% ally8) {
+      E(old_union)$color[j] <- rgb(245/255,222/255,179/255,1) # Wheat
+       }
+    else {
+      E(old_union)$color[j] <- "grey50"
+    }
+  }
+  plot(old_union,vertex.size=27, edge.arrow.size=0.5, layout = layout(old_union))
+  legend(x = -2.5, y = -1.2, legend = c("Expressed interest in working together"), fill = c("grey50"), title = "Connections")
+  legend(x = 0.1, y = -1.1, legend = c("Gurundji 1.0 and Gurundji 2.0", "Gurundji 1.0 and Makassan 2.0", "Makassan 1.0 and Gurundji 2.0", "Makassan 1.0 and Makassan 2.0"),  fill = c("red", "yellow", "purple", "green"), title = "Original tribes and swap tribes")
+}
+plot_net_swap(ep4_day10_g2,ep4_day10_m2)
+```
+
+```{r}
+# Episode 5, Day 13
+cast_matrix<- cast_matrix[-5,-5] # Jacob voted out
+ep1_day1 <- as_adjacency_matrix(delete_vertices(graph_from_adjacency_matrix(ep1_day1), "Jacob"))
+ep5_day13_m2 <- as_adjacency_matrix(delete_vertices(graph_from_adjacency_matrix(ep4_day10_m2),"Jacob")) 
+ally7 <- c("Clown|Mark","Mark|Clown","Dio|Mark","Mark|Dio","Liz|Mark","Mark|Liz")
+ally8 <- c("Denver|Neb","Neb|Denver","Dio|Neb","Neb|Dio")
+ep5_day13_m2[1,c(2,3,4,6)] <- 1 # CT
+ep5_day13_m2[2,c(1,3,4,6)] <- 1 # Lisa
+ep5_day13_m2[3,c(1,2,4,6)] <- 1 # Megan O
+ep5_day13_m2[4,c(1,2,3,6)] <- 1 # Mel
+ep5_day13_m2[6,c(1,2,3,4)] <- 1 # Zanny
+ep5_day13_g2 <- ep4_day10_g2
+ep5_day13_g2[1,c(3,4,5)] <- 1 # Clown
+ep5_day13_g2[2,c(3,6)] <- 1 # Denver
+ep5_day13_g2[3,c(1,2,4,5,6)] <- 1 # Dio
+ep5_day13_g2[4,c(1,3,5)] <- 1 # Liz
+ep5_day13_g2[5,c(1,3,4)] <- 1 # Mark
+ep5_day13_g2[6,c(2,3)] <- 1 # Neb
+# Clown, Dio, Liz, Mark alliance - 7
+# Denver, Dio, Neb alliance - 8
+plot_net_swap(ep5_day13_g2,ep5_day13_m2)
+```
+
+```{r}
+# Episode 6, Day 14
+cast_matrix<- cast_matrix[-6,-6] # Liz voted out
+ep1_day1 <- as_adjacency_matrix(delete_vertices(graph_from_adjacency_matrix(ep1_day1), "Liz"))
+ep6_day14_g2 <- as_adjacency_matrix(delete_vertices(graph_from_adjacency_matrix(ep5_day13_g2),"Liz"))
+ep6_day14_m2 <- ep5_day13_m2
+plot_net_swap(ep6_day14_g2,ep6_day14_m2)
+```
+```{r}
+# Episode 7, Day 16, Merge
+# Clown, CT, Denver, Dio, Lisa, Mark, Megan O, Mel, Neb, Zach
+cast_matrix<- cast_matrix[-11,-11] # Zanny voted out
+ep1_day1 <- as_adjacency_matrix(delete_vertices(graph_from_adjacency_matrix(ep1_day1), "Zanny"))
+# At this point ally2 and ally5 are non-existent
+ep6_day14_m2 <- as_adjacency_matrix(delete_vertices(graph_from_adjacency_matrix(ep6_day14_m2),"Zanny"))
+ep7_day16 <- as_adjacency_matrix(graph_from_adjacency_matrix(ep6_day14_g2) %u% graph_from_adjacency_matrix(ep6_day14_m2))
+ep7_day16 <- ep7_day16[sort(rownames(ep7_day16)),sort(colnames(ep7_day16))]
+ally9 <- c("Dio|Megan O", "Dio|Megan O")
+ally10 <- c("CT|Zach", "Zach|CT", "Lisa|Zach", "Zach|Lisa")
+ally11 <- c("Clown|Megan O", "Megan O|Clown")
+ally12 <- c()
+ally13 <- c()
+ally14 <- c()
+ally15 <- c()
+ally16 <- c()
+ally17 <- c()
+ep7_day16[1,c(2,3,4,5,7,10)] <- 1 # Clown
+ep7_day16[2,c(3,5,7,8,9,10)] <- 1 # CT
+ep7_day16[3,c(1,4,5,6,7,8,10)] <- 1 # Denver
+ep7_day16[4,c(1,3,5,6,7,9)] <- 1 # Dio
+ep7_day16[5,c(2,4,6,7,8,10)] <- 1 # Lisa
+ep7_day16[6,c(1,4,5,7,10)] <- 1 # Mark
+ep7_day16[7,c(2,3,5,8,9,10)] <- 1 # Megan O
+ep7_day16[8,c(2,3,5,7,9,10)] <- 1 # Mel
+ep7_day16[9,c(2,3,4,5,7,8,10)] <- 1 # Neb 
+ep7_day16[10,c(2,3,4,5,7,8,9)] <- 1 # Zach
+# Denver, Dio, Megan O alliance
+# CT, Lisa, Zach alliance
+# Clown, Denver, Dio, Megan O alliance
+plot_net_merge <- function(g) {
+  g <- graph_from_adjacency_matrix(g) 
+  for (i in 1:length(V(g)$name)) {
+    if (V(g)$name[i] %in% cast_g1 && V(g)$name[i] %in% cast_g2) {
+      V(g)$color[i] <- "red"
+    }
+    else if (V(g)$name[i] %in% cast_g1 && V(g)$name[i] %in% cast_m2) {
+        V(g)$color[i] <- "yellow"
+      }
+    else if (V(g)$name[i] %in% cast_m1 && V(g)$name[i] %in% cast_g2) {
+        V(g)$color[i] <- "purple"
+      }
+    else {
+      V(g)$color[i] <- "green"
+    }
+  }
+  for (j in 1:length(E(g))) {
+    if (attr(E(g),"vnames")[j] %in% ally1) {
+      E(g)$color[j] <- rgb(1,0,0,1) # Main alliance has deep red
+    }
+    else if (attr(E(g),"vnames")[j] %in% ally2) {
+      E(g)$color[j] <- rgb(1,0,0,0.1) # Extension of alliance 1; light red
+    }
+    else if (attr(E(g),"vnames")[j] %in% ally3) {
+      E(g)$color[j] <- rgb(128/255,0,0,1) # Extension of alliance 1; maroon
+    }
+    else if (attr(E(g),"vnames")[j] %in% ally4) {
+      E(g)$color[j] <- rgb(165/255,42/255,42/255,1) # Brown
+       }
+    else if (attr(E(g),"vnames")[j] %in% ally5) {
+      E(g)$color[j] <- rgb(210/255,180/255,140/255,1) # Tan
+       }
+    else if (attr(E(g),"vnames")[j] %in% ally6) {
+      E(g)$color[j] <- rgb(0,1,0,1) # Green
+       }
+    else if (attr(E(g),"vnames")[j] %in% ally7) {
+      E(g)$color[j] <- rgb(210/255,180/255,140/255,0.4) # Less opaque tan
+       }
+    else if (attr(E(g),"vnames")[j] %in% ally8) {
+      E(g)$color[j] <- rgb(245/255,222/255,179/255,1) # Wheat
+    }
+    else if (attr(E(g),"vnames")[j] %in% ally9) {
+      E(g)$color[j] <- rgb(250/255,128/255,114/255,1) # Salmon
+    }
+    else if (attr(E(g),"vnames")[j] %in% ally10) {
+      E(g)$color[j] <- rgb(0,100/255,0,1) # Dark green
+    }
+    else if (attr(E(g),"vnames")[j] %in% ally11) {
+      E(g)$color[j] <- rgb(165/255,42/255,42/255,0.4) # Less opaque brown
+    }
+    else if (attr(E(g),"vnames")[j] %in% ally12) {
+      E(g)$color[j] <- rgb(255/255,165/255,0,1) # Orange 
+    }
+    else if (attr(E(g),"vnames")[j] %in% ally13) {
+      E(g)$color[j] <- rgb(238/255,130/255,238/255,1) # Violet 
+    }
+    else if (attr(E(g),"vnames")[j] %in% ally14) {
+      E(g)$color[j] <- rgb(128/255,0,128/255,1) # Purple 
+    }
+    else if (attr(E(g),"vnames")[j] %in% ally15) {
+      E(g)$color[j] <- rgb(230/255,230/255,250/255,1) # Lavender
+    }
+    else if (attr(E(g),"vnames")[j] %in% ally16) {
+      E(g)$color[j] <- rgb(255/255,0,255/255,1) # Magenta
+    }
+    else if (attr(E(g),"vnames")[j] %in% ally17) {
+      E(g)$color[j] <- rgb(75/255,0,130/255,1) # Indigo 
+    }
+    else {
+      E(g)$color[j] <- "grey50"
+    }
+  }
+  plot(g,vertex.size=27, edge.arrow.size=0.5, layout = layout(g))
+  legend(x = -2.5, y = -1.2, legend = c("Expressed interest in working together"), fill = c("grey50"), title = "Connections")
+  legend(x = 0.1, y = -1.1, legend = c("Gurundji 1.0 and Gurundji 2.0", "Gurundji 1.0 and Makassan 2.0", "Makassan 1.0 and Gurundji 2.0", "Makassan 1.0 and Makassan 2.0"),  fill = c("red", "yellow", "purple", "green"), title = "Original tribes and swap tribes")
+}
+plot_net_merge(ep7_day16)
+```
+
+```{r}
+cast_matrix<- cast_matrix[-3,-3] # Denver voted out
+ep1_day1 <- as_adjacency_matrix(delete_vertices(graph_from_adjacency_matrix(ep1_day1), "Denver"))
+ep8_day19 <- as_adjacency_matrix(delete_vertices(graph_from_adjacency_matrix(ep7_day16),"Denver"))
+plot_net_merge(ep8_day19)
+```
+
+```{r}
+# Day 21
+cast_matrix<- cast_matrix[-3,-3] # Dio voted out
+ep1_day1 <- as_adjacency_matrix(delete_vertices(graph_from_adjacency_matrix(ep1_day1), "Dio"))
+ep9_day21 <- as_adjacency_matrix(delete_vertices(graph_from_adjacency_matrix(ep8_day19),"Dio"))
+ally12 <- c("Clown|Neb", "Neb|Clown", "Mark|Neb", "Neb|Mark")
+ally13 <- c("CT|Mark", "Mark|CT", "CT|Neb", "Neb|CT")
+ep9_day21[1,c(4,7)] <- 1 # Clown
+ep9_day21[2,c(4,7)] <- 1 # CT
+ep9_day21[3,4] <- 0 # Lisa
+ep9_day21[4,c(1,2,7)] <- 1 # Mark
+ep9_day21[4,c(3,5,6)] <- 0 # Mark
+ep9_day21[5,4] <- 0 # Megan O
+ep9_day21[6,4] <- 0 # Mel
+ep9_day21[7,c(1,2,4)] <- 1 # Neb
+# Clown, Mark, Neb alliance
+# CT, Mark, Neb alliance
+plot_net_merge(ep9_day21)
+```
+```{r}
+# Day 22
+ep9_day22 <- ep9_day21
+ep9_day22[2,1] <- 1 # CT
+ally14 <- c("Clown|CT","CT|Clown")
+# Clown, CT, Mark, Neb alliance
+plot_net_merge(ep9_day22)
+```
+
+
+```{r}
+# Day 23
+cast_matrix<- cast_matrix[-8,-8] # Zach voted out
+ep1_day1 <- as_adjacency_matrix(delete_vertices(graph_from_adjacency_matrix(ep1_day1), "Zach"))
+ep9_day23 <- as_adjacency_matrix(delete_vertices(graph_from_adjacency_matrix(ep9_day21),"Zach"))
+ep9_day23[4,5] <- 1 # Mark
+ep9_day23[5,4] <- 1 # Megan O
+ally17 <- c("CT|Megan O", "Megan O|CT","Mark|Megan O", "Megan O|Mark") # ally16 is a subset of ally14
+# Clown, CT, Mark, Megan O alliance
+plot_net_merge(ep9_day23)
+```
+
+```{r}
+cast_matrix<- cast_matrix[-6,-6] # Mel voted out
+ep1_day1 <- as_adjacency_matrix(delete_vertices(graph_from_adjacency_matrix(ep1_day1), "Mel"))
+ep9_day24 <- as_adjacency_matrix(delete_vertices(graph_from_adjacency_matrix(ep9_day23),"Mel"))
+ep9_day24[1,c(2,4,5)] <- 1 # Clown
+ep9_day24[2,c(1,4,5)] <- 1 # CT
+ep9_day24[4,c(1,2,5)] <- 1 # Mark
+ep9_day24[5,c(1,2,4)] <- 1 # Megan O
+# Clown, CT, Neb alliance
+plot_net_merge(ep9_day24)
+```
+
+```{r}
+cast_matrix<- cast_matrix[-1,-1] # Clown voted out
+ep1_day1 <- as_adjacency_matrix(delete_vertices(graph_from_adjacency_matrix(ep1_day1), "Clown"))
+ep10_day26 <- as_adjacency_matrix(delete_vertices(graph_from_adjacency_matrix(ep9_day24),"Clown"))
+ep10_day26[1,c(2,3)] <- 0 # CT
+ep10_day26[1,c(4,5)] <- 1 # CT
+ep10_day26[2,c(1,3,4,5)] <- 0 # Lisa
+ep10_day26[3,c(1,2,4,5)] <- 0 # Mark
+ep10_day26[4,c(1,5)] <- 1 # Megan O
+ep10_day26[4,c(2,3)] <- 0 # Megan O
+ep10_day26[5,c(1,4)] <- 1 # Neb
+ep10_day26[5,c(2,3)] <- 0 # Neb
+# CT, Megan O, Neb alliance
+plot_net_merge(ep10_day26)
+```
+```{r}
+cast_matrix<- cast_matrix[-2,-2] # Lisa voted out
+ep1_day1 <- as_adjacency_matrix(delete_vertices(graph_from_adjacency_matrix(ep1_day1), "Lisa"))
+finale_day27 <- as_adjacency_matrix(delete_vertices(graph_from_adjacency_matrix(ep10_day26),"Lisa"))
+plot_net_merge(finale_day27)
+```
+```{r}
+cast_matrix<- cast_matrix[-2,-2] # Mark voted out
+ep1_day1 <- as_adjacency_matrix(delete_vertices(graph_from_adjacency_matrix(ep1_day1), "Mark"))
+finale_day28 <- as_adjacency_matrix(delete_vertices(graph_from_adjacency_matrix(finale_day27),"Mark"))
+plot_net_merge(finale_day28)
+```
+
